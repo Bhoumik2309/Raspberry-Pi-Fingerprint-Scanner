@@ -1,0 +1,9 @@
+#For Fingerprint Data Capture
+#we need to install some libraries they are
+1.   sudo pip3 install pyserial
+2.   sudo pip3 install adafruit-circuitpython-fingerprint
+
+#If There is a any problem While installing try this method
+
+1.  sudo pip3 install pyserial --break-system-packages
+2.   sudo pip3 install adafruit-circuitpython-fingerprint --break-system-packages
