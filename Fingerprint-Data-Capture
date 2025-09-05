@@ -1,0 +1,104 @@
+#For Fingerprint Capture We Use this code
+
+import serial                   # Import the PySerial library for serial communication
+import time                     # Import the time module to handle delays
+import os                       # Import the os module for interacting with the operating system (e.g., file paths)
+import adafruit_fingerprint     # Import the Adafruit Fingerprint library for sensor communication
+from adafruit_fingerprint import Adafruit_Fingerprint # Import the main class from the library
+print("Fingerprint Dataset Creator")
+
+# --- Configuration Settings ---
+# Define serial port configuration for the sensor.
+SERIAL_PORT = "/dev/serial0"
+BAUD_RATE = 57600
+IMAGE_FOLDER = "fingerprints"
+NUM_IMAGES = 3  # The number of images to capture.
+
+# --- Initialization ---
+# Set up serial connection and sensor object.
+try:
+    # Initialize a serial connection object.
+    uart = serial.Serial(SERIAL_PORT, baudrate=BAUD_RATE, timeout=1)
+    # Create an instance of the Adafruit_Fingerprint sensor object.
+    finger = Adafruit_Fingerprint(uart)
+    print("Serial connection established.")
+except Exception as e:
+    # Handle and print any errors that occur during serial initialization.
+    print(f"Error initializing serial: {e}")
+    exit(1) # Exit the script if the serial connection fails.
+
+# --- Function Definitions ---
+# Function to verify connection to the sensor.
+def initialize_sensor():
+    """
+    Verifies the password and connection with the fingerprint sensor.
+    Raises a RuntimeError if the connection fails.
+    """
+    print("Verifying fingerprint sensor...")
+    if finger.verify_password() != adafruit_fingerprint.OK:
+        # If the password verification fails, raise an error.
+        raise RuntimeError("Failed to connect to fingerprint sensor. Check wiring and serial port.")
+    print("Sensor verified and ready.")
+
+# Function to capture and save a single fingerprint image.
+def capture_and_save_image(folder_path, image_id):
+    """
+    Captures a single fingerprint image from the sensor and saves it as a .bmp file.
+    """
+    print(f"\nPlace your finger on the sensor for image {image_id}...")
+    while finger.get_image() != adafruit_fingerprint.OK:
+        # Loop until the sensor successfully captures a fingerprint image.
+        time.sleep(0.5)
+
+    print("Image captured.")
+    # Retrieve the raw image data from the sensor.
+    image_data = finger.get_fpdata()
+
+    # Convert the list of integers (image data) into a bytes object.
+    image_bytes = bytes(image_data)
+
+    # Construct the full file path using the folder and image ID.
+    file_path = os.path.join(folder_path, f"finger_{image_id}.bmp")
+
+    try:
+        # Open the file in binary write mode ('wb') and save the image data.
+        with open(file_path, "wb") as bmp_file:
+            bmp_file.write(image_bytes)
+        print(f"Saved image {image_id} to: {file_path}")
+        return True
+    except IOError as e:
+        # Handle any I/O errors that occur while saving the file.
+        print(f"Error saving image {image_id}: {e}")
+        return False
+
+# --- Main Execution ---
+# Check if the image folder exists, and create it if it doesn't.
+if not os.path.exists(IMAGE_FOLDER):
+    os.makedirs(IMAGE_FOLDER)
+    print(f"Created folder: {IMAGE_FOLDER}")
+
+# Run the process.
+try:
+    # 1. Initialize the sensor.
+    initialize_sensor()
+
+    # 2. Loop to capture the specified number of images.
+    for i in range(1, NUM_IMAGES + 1):
+        success = capture_and_save_image(IMAGE_FOLDER, i)
+        if not success:
+            print(f"Skipping image {i} due to error.")
+        time.sleep(1) # Add a delay between image captures.
+
+    print("\nFingerprint capture process complete.")
+
+except RuntimeError as e:
+    # Handle the specific RuntimeError raised by the initialize_sensor function.
+    print(f"\nFatal error: {e}")
+except Exception as e:
+    # Handle any other unexpected exceptions.
+    print(f"\nUnexpected error: {e}")
+finally:
+    # Ensure the serial port is closed at the end of the script.
+    if 'uart' in locals() and uart.is_open:
+        uart.close()
+        print("Serial port closed.")
