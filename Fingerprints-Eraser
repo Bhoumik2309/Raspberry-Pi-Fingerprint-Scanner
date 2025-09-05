@@ -1,0 +1,57 @@
+import serial
+import adafruit_fingerprint
+from adafruit_fingerprint import Adafruit_Fingerprint
+
+print("Fingerprint Sensor Data Eraser")
+
+# --- Serial port configuration ---
+SERIAL_PORT = "/dev/serial0"
+BAUD_RATE = 57600
+
+# --- Initialization ---
+# Set up serial connection and sensor object.
+try:
+    uart = serial.Serial(SERIAL_PORT, baudrate=BAUD_RATE, timeout=1)
+    finger = Adafruit_Fingerprint(uart)
+    print("Serial connection established.")
+except Exception as e:
+    print(f"Error initializing serial: {e}")
+    exit(1)
+
+# --- Function Definitions ---
+# Function to verify connection to the sensor.
+def initialize_sensor():
+    print("Verifying fingerprint sensor...")
+    if finger.verify_password() != adafruit_fingerprint.OK:
+        raise RuntimeError("Failed to connect to fingerprint sensor. Check wiring and serial port.")
+    print("Sensor verified and ready.")
+
+# Function to erase all templates.
+def erase_all_templates():
+    """
+    Prompts the user for confirmation and erases all fingerprint templates.
+    """
+    print("This will delete all stored fingerprints from the sensor.")
+    confirm = input("Type 'YES' to confirm: ").strip().upper()
+    if confirm != "YES":
+        print("Erase operation cancelled.")
+        return
+
+    print("Erasing fingerprint templates...")
+    # Call the empty_library function to clear all stored templates.
+    if finger.empty_library() == adafruit_fingerprint.OK:
+        print("All fingerprint data erased successfully.")
+    else:
+        print("Failed to erase fingerprint data.")
+
+# --- Main Execution ---
+try:
+    initialize_sensor()
+    erase_all_templates()
+except Exception as e:
+    print(f"Unexpected error: {e}")
+
+finally:
+    if 'uart' in locals() and uart.is_open:
+        uart.close()
+        print("Serial port closed.")
