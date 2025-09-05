@@ -1,0 +1,111 @@
+# --------------------------------------------------------------------------------------------------
+# Script Name: finger-verif.py
+# Purpose: This script verifies a live fingerprint scan against a library of
+#          fingerprints already stored on the R307S sensor's memory.
+#          It is a core component for access control or authentication systems.
+#
+# Hardware Requirements:
+# - Raspberry Pi 4
+# - R307S Fingerprint Sensor
+#
+# Software Requirements:
+# - Python 3
+# - The 'pyserial' library
+# - The 'adafruit-circuitpython-fingerprint' library
+# --------------------------------------------------------------------------------------------------
+
+# Import necessary libraries to perform specific tasks.
+import serial
+import time
+import adafruit_fingerprint
+from adafruit_fingerprint import Adafruit_Fingerprint
+
+# Display a welcome message to the user.
+print("Fingerprint Verification")
+
+# --- Serial port configuration ---
+# These are the settings for communication with the sensor.
+SERIAL_PORT = "/dev/serial0"   # The serial port of the Raspberry Pi.
+BAUD_RATE = 57600              # The data transfer rate, which must match the sensor's.
+
+# --- Initialization ---
+# This block sets up the serial connection and handles potential errors.
+try:
+    # Initialize the serial connection object.
+    uart = serial.Serial(SERIAL_PORT, baudrate=BAUD_RATE, timeout=1)
+    # Create an instance of the Adafruit_Fingerprint sensor object.
+    finger = Adafruit_Fingerprint(uart)
+    print("Serial connection established.")
+except Exception as e:
+    # Catches any error that occurs during the serial setup.
+    print(f"Error initializing serial: {e}")
+    exit(1)
+
+# --- Function Definitions ---
+# This section contains reusable functions for specific tasks.
+# Function to verify the connection to the sensor.
+def initialize_sensor():
+    print("Verifying fingerprint sensor...")
+    # Calls the sensor's verify_password() method to check for a successful handshake.
+    if finger.verify_password() != adafruit_fingerprint.OK:
+        # If the password verification fails, a RuntimeError is raised.
+        raise RuntimeError("Failed to connect to fingerprint sensor. Check wiring and serial port.")
+    print("Sensor verified and ready.")
+
+# Function to verify a fingerprint.
+def verify_fingerprint():
+    print("\nPlace your finger on the sensor for verification...")
+    # This loop continuously waits until the sensor successfully captures a fingerprint image.
+    while finger.get_image() != adafruit_fingerprint.OK:
+        time.sleep(0.5)
+
+    print("Image captured.")
+
+    # Convert the captured image into a template format that the sensor can read.
+    # The '1' specifies the image buffer to use.
+    if finger.image_2_tz(1) != adafruit_fingerprint.OK:
+        print("Error converting image to template.")
+        return False
+
+    # Search the sensor's internal library for a matching template.
+    search_result = finger.finger_search()
+    
+    # Check the result of the search operation.
+    if search_result == adafruit_fingerprint.OK:
+        # A match was found. The finger_id attribute holds the ID of the matched template.
+        print(f"Fingerprint matched! ID: {finger.finger_id}")
+        return True
+    elif search_result == adaf-ruit_fingerprint.NOTFOUND:
+        # No matching fingerprint was found in the sensor's memory.
+        print("No matching fingerprint found.")
+        return False
+    else:
+        # An error occurred during the search operation.
+        print(f"Fingerprint search failed with code: {search_result}")
+        return False
+
+# --- Main Execution ---
+# This is the main part of the script that runs the functions.
+try:
+    # 1. Initialize the sensor to ensure a proper connection.
+    initialize_sensor()
+
+    # 2. Call the verification function and store the result.
+    verified = verify_fingerprint()
+    
+    # 3. Print the final result based on the verification outcome.
+    if verified:
+        print("Access granted.")
+    else:
+        print("Access denied.")
+
+except Exception as e:
+    # Catches any unexpected errors that might occur.
+    print(f"Unexpected error: {e}")
+
+finally:
+    # This block ensures that the serial port is always closed,
+    # even if an error occurs. This is good practice to free up the port.
+    if 'uart' in locals() and uart.is_open:
+        uart.close()
+        print("Serial port closed.")
